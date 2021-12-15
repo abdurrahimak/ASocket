@@ -289,8 +289,8 @@ namespace ASocket
                 RemoteEndPoint = socket.RemoteEndPoint,
             };
             _clientStates.Add(clientState);
-            BeginReceive(clientState);
             Connected?.Invoke(socket);
+            BeginReceive(clientState);
         }
 
         private void OnMessageReceivedInterval(ClientState clientState)
