@@ -14,9 +14,9 @@ namespace ASocket
         private Dictionary<Socket, Peer> _peersBySocket = new Dictionary<Socket, Peer>();
         private Dictionary<EndPoint, Peer> _peersByUdpEndpoint = new Dictionary<EndPoint, Peer>();
 
-        public Action<Peer> PeerConnected;
-        public Action<Peer> PeerDisconnected;
-        public Action<Peer, byte[]> MessageReceived;
+        public event Action<Peer> PeerConnected;
+        public event Action<Peer> PeerDisconnected;
+        public event Action<Peer, byte[]> MessageReceived;
 
         public SocketServer(bool logEnabled = false)
         {

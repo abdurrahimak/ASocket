@@ -9,10 +9,10 @@ namespace ASocket
         private IPEndPoint _remoteEndPoint;
         private bool _logEnable = true;
 
-        public Action Connected;
-        public Action ConnectionFailed;
-        public Action Disconnected;
-        public Action<byte[]> MessageReceived;
+        public event Action Connected;
+        public event Action ConnectionFailed;
+        public event Action Disconnected;
+        public event Action<byte[]> MessageReceived;
 
         private PacketBuffer _sendBuffer = new PacketBuffer();
         private PacketBuffer _readTcpBuffer = new PacketBuffer();
