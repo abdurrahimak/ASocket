@@ -18,6 +18,7 @@ namespace ASocket
                 _socketUpdater = socketUpdater;
                 _socketUpdater.LoopEvent += OnLoop;
             }
+            Log.Log.SetUpdater(_hasUpdater);
         }
 
         protected void AddDispatcherQueue(Action action)
@@ -44,6 +45,7 @@ namespace ASocket
         private void OnLoop()
         {
             MainThreadDispatcher.Update(_dispatcherId);
+            Log.Log.Update();
         }
     }
 }
