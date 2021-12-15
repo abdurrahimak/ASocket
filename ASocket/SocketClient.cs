@@ -2,7 +2,7 @@
 using System.Net;
 namespace ASocket
 {
-    public class SocketClient
+    public class SocketClient : SocketBase
     {
         private TcpSocketClient _tcpSocketClient;
         private UdpSocket _udpSocket;
@@ -21,7 +21,7 @@ namespace ASocket
         public EndPoint RemoteTcpEndPoint => _tcpSocketClient.RemoteEndPoint;
         public EndPoint LocalUdpEndPoint => _udpSocket.LocalEndPoint;
 
-        public SocketClient()
+        public SocketClient(ISocketUpdater socketUpdater) : base(socketUpdater)
         {
             _tcpSocketClient = new TcpSocketClient();
             _udpSocket = new UdpSocket();
@@ -76,8 +76,9 @@ namespace ASocket
             _udpSocket?.Disconnect();
         }
 
-        public void Destroy()
+        public override void Destroy()
         {
+            base.Destroy();
             Unregister();
         }
         #endregion
@@ -89,13 +90,13 @@ namespace ASocket
                 ASocket.Log.Log.Info($"[{nameof(SocketClient)}] [Send], Client not connected.");
                 return;
             }
-            
+
             var length = _sendBuffer.SetMessage(MessageId.None, data);
             if (packetFlag == PacketFlag.Tcp)
             {
                 _tcpSocketClient.Send(_sendBuffer.Buffer, length);
             }
-            else if(packetFlag == PacketFlag.Udp)
+            else if (packetFlag == PacketFlag.Udp)
             {
                 _udpSocket.Send(_sendBuffer.Buffer, length);
             }
@@ -118,17 +119,26 @@ namespace ASocket
         {
             _udpSocket.StartClient(_remoteEndPoint);
             SendUdpInformation();
-            Connected?.Invoke();
+            AddDispatcherQueue(() =>
+            {
+                Connected?.Invoke();
+            });
         }
-        
+
         private void OnTcpSocketConnectionFailed()
         {
-            ConnectionFailed?.Invoke();
+            AddDispatcherQueue(() =>
+            {
+                ConnectionFailed?.Invoke();
+            });
         }
 
         private void OnTcpSocketDisconnected()
         {
-            Disconnected?.Invoke();
+            AddDispatcherQueue(() =>
+            {
+                Disconnected?.Invoke();
+            });
         }
 
         private void OnTcpSocketMessageReceived(ref byte[] buffer, int bytes)
@@ -142,7 +152,10 @@ namespace ASocket
 
             if (_readTcpBuffer.PacketCompleted)
             {
-                MessageReceived?.Invoke(_readTcpBuffer.GetMessage());
+                AddDispatcherQueue(() =>
+                {
+                    MessageReceived?.Invoke(_readTcpBuffer.GetMessage());
+                });
             }
         }
 
@@ -157,10 +170,12 @@ namespace ASocket
 
             if (_readUdpBuffer.PacketCompleted)
             {
-                MessageReceived?.Invoke(_readUdpBuffer.GetMessage());
+                AddDispatcherQueue(() =>
+                {
+                    MessageReceived?.Invoke(_readUdpBuffer.GetMessage());
+                });
             }
         }
-        
         #endregion
     }
 }

@@ -8,7 +8,7 @@ namespace ASocket
     {
         static string address = "127.0.0.1";
         static int port = 27000;
-        private static SocketServer _socketServer = new SocketServer();
+        private static SocketServer _socketServer = new SocketServer(null);
         private static List<Peer> _peers = new List<Peer>();
         private static List<SocketClient> _socketClients = new List<SocketClient>();
         static void Main2(string[] args)
@@ -38,7 +38,7 @@ namespace ASocket
                     var commands = readLine.Split(' ');
                     if (commands[0].Equals("create"))
                     {
-                        SocketClient socketClient = new SocketClient();
+                        SocketClient socketClient = new SocketClient(null);
 
                         socketClient.Connected += () =>
                         {

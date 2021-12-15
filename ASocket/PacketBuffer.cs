@@ -50,6 +50,7 @@ namespace ASocket
 
         internal byte[] GetBlockOfBuffer(int startIndex, int size)
         {
+            //TODO: Write a bytearray pool.
             var arr = new byte[size];
             System.Buffer.BlockCopy(Buffer, startIndex, arr, 0, size);
             return arr;

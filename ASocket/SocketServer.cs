@@ -4,7 +4,8 @@ using System.Net;
 using System.Net.Sockets;
 namespace ASocket
 {
-    public class SocketServer
+
+    public class SocketServer : SocketBase
     {
         private TcpSocketListener _tcpSocketListener;
         private UdpSocket _udpSocketListener;
@@ -12,12 +13,12 @@ namespace ASocket
 
         private Dictionary<Socket, Peer> _peersBySocket = new Dictionary<Socket, Peer>();
         private Dictionary<EndPoint, Peer> _peersByUdpEndpoint = new Dictionary<EndPoint, Peer>();
-
+        
         public event Action<Peer> PeerConnected;
         public event Action<Peer> PeerDisconnected;
         public event Action<Peer, byte[]> MessageReceived;
 
-        public SocketServer()
+        public SocketServer(ISocketUpdater socketUpdater) : base(socketUpdater)
         {
             _tcpSocketListener = new TcpSocketListener();
             _udpSocketListener = new UdpSocket();
@@ -66,8 +67,9 @@ namespace ASocket
             }
         }
 
-        public void Destroy()
+        public override void Destroy()
         {
+            base.Destroy();
             Unregister();
         }
 
@@ -75,19 +77,17 @@ namespace ASocket
         {
             _tcpSocketListener.Disconnect(peer.TcpSocket);
         }
-        
         #endregion
 
         #region Send Message
-
         public void Send(Peer peer, byte[] data, PacketFlag packetFlag)
         {
-            var length= peer.SendBuffer.SetMessage(MessageId.None, data);
+            var length = peer.SendBuffer.SetMessage(MessageId.None, data);
             if (packetFlag == PacketFlag.Tcp)
             {
                 _tcpSocketListener.Send(peer.TcpSocket, peer.SendBuffer.Buffer, length);
             }
-            else if(packetFlag == PacketFlag.Udp && peer.UdpReady)
+            else if (packetFlag == PacketFlag.Udp && peer.UdpReady)
             {
                 _udpSocketListener.SendTo(peer.UdpRemoteEndPoint, peer.SendBuffer.Buffer, length);
             }
@@ -100,7 +100,6 @@ namespace ASocket
                 Send(peerBySocketKvp.Value, data, packetFlag);
             }
         }
-        
         #endregion
 
         #region Event Listeners
@@ -120,7 +119,10 @@ namespace ASocket
                 {
                     _peersByUdpEndpoint.Remove(peer.UdpRemoteEndPoint);
                 }
-                PeerDisconnected?.Invoke(peer);
+                AddDispatcherQueue(() =>
+                {
+                    PeerDisconnected?.Invoke(peer);
+                });
             }
         }
 
@@ -150,11 +152,17 @@ namespace ASocket
                     peer.SetUdpEndpoint(endPoint);
                     ASocket.Log.Log.Verbose($"[{nameof(SocketServer)}], Peer udp endpoint is {endPoint}");
                     _peersByUdpEndpoint.Add(endPoint, peer);
-                    PeerConnected?.Invoke(peer);
+                    AddDispatcherQueue(() =>
+                    {
+                        PeerConnected?.Invoke(peer);
+                    });
                 }
                 else
                 {
-                    MessageReceived?.Invoke(peer, peer.ReadTcpBuffer.GetMessage());
+                    AddDispatcherQueue(() =>
+                    {
+                        MessageReceived?.Invoke(peer, peer.ReadTcpBuffer.GetMessage());
+                    });
                 }
             }
         }
@@ -175,7 +183,10 @@ namespace ASocket
 
             if (peer.ReadUdpBuffer.PacketCompleted)
             {
-                MessageReceived?.Invoke(peer, peer.ReadUdpBuffer.GetMessage());
+                AddDispatcherQueue(() =>
+                {
+                    MessageReceived?.Invoke(peer, peer.ReadUdpBuffer.GetMessage());
+                });
             }
         }
         #endregion

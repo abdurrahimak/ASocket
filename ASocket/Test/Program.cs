@@ -42,13 +42,13 @@ namespace ASocket
             listener.Start(ip, port);
             client.Connect(ip, port);
 
-            SocketClient client2 = new SocketClient();
+            SocketClient client2 = new SocketClient(null);
             client2.Connect(ip, port);
 
-            SocketClient client3 = new SocketClient();
+            SocketClient client3 = new SocketClient(null);
             client3.Connect(ip, port);
             
-            SocketClient client4 = new SocketClient();
+            SocketClient client4 = new SocketClient(null);
             client4.Connect(ip, port);
             
             udpListener.StartServer(ip, port);
