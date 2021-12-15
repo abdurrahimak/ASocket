@@ -71,7 +71,7 @@ namespace ASocket.Log
 
         private static void LogWithDispatcher(LogLevel logLevel, string log)
         {
-            if (_hasUpdater)
+            if (!_hasUpdater)
             {
                 LogEvent?.Invoke(logLevel, log);
             }

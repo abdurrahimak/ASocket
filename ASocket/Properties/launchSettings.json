@@ -1,0 +1,9 @@
+{
+  "profiles": {
+    "ASocket": {
+      "commandName": "Executable",
+      "executablePath": "C:\\Users\\AbdurrahimAkpinar\\source\\repos\\SocketListener\\Test2\\bin\\Debug\\netcoreapp3.1\\Test2.exe",
+      "workingDirectory": "C:\\Users\\AbdurrahimAkpinar\\source\\repos\\SocketListener\\Test2"
+    }
+  }
+}

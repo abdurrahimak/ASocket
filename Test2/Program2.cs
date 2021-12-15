@@ -1,9 +1,11 @@
+using ASocket;
+using ASocket.Log;
 using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Text;
-using ASocket.Log;
-namespace ASocket
+
+namespace ASocketTest
 {
     class Program2
     {
@@ -14,7 +16,7 @@ namespace ASocket
         private static List<SocketClient> _socketClients = new List<SocketClient>();
         static void Main(string[] args)
         {
-            Log.Log.SetLogLevel(LogLevel.Verbose | LogLevel.Info | LogLevel.Error);
+            Log.SetLogLevel(LogLevel.Verbose | LogLevel.Info | LogLevel.Error);
 
             _socketServer.PeerConnected += (peer) =>
             {
