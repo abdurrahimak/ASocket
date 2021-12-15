@@ -7,7 +7,6 @@ namespace ASocket
         private TcpSocketClient _tcpSocketClient;
         private UdpSocket _udpSocket;
         private IPEndPoint _remoteEndPoint;
-        private bool _logEnable = true;
 
         public event Action Connected;
         public event Action ConnectionFailed;
@@ -22,11 +21,10 @@ namespace ASocket
         public EndPoint RemoteTcpEndPoint => _tcpSocketClient.RemoteEndPoint;
         public EndPoint LocalUdpEndPoint => _udpSocket.LocalEndPoint;
 
-        public SocketClient(bool logEnabled = false)
+        public SocketClient()
         {
-            _logEnable = logEnabled;
-            _tcpSocketClient = new TcpSocketClient(_logEnable);
-            _udpSocket = new UdpSocket(_logEnable);
+            _tcpSocketClient = new TcpSocketClient();
+            _udpSocket = new UdpSocket();
 
             Register();
         }
@@ -66,8 +64,7 @@ namespace ASocket
             }
             catch (Exception ex)
             {
-                Log($"Exception occured when Client connectiing..");
-                Log(ex.ToString());
+                ASocket.Log.Log.Error($"[{nameof(SocketClient)}], Exception occured when Client connecting.. \n {ex}");
                 _tcpSocketClient.Disconnect();
                 _udpSocket?.Disconnect();
             }
@@ -89,6 +86,7 @@ namespace ASocket
         {
             if (!_tcpSocketClient.IsConnected)
             {
+                ASocket.Log.Log.Info($"[{nameof(SocketClient)}] [Send], Client not connected.");
                 return;
             }
             
@@ -164,13 +162,5 @@ namespace ASocket
         }
         
         #endregion
-
-        private void Log(string log)
-        {
-            if (_logEnable)
-            {
-                Console.WriteLine($"[{nameof(SocketClient)}], {log}");
-            }
-        }
     }
 }

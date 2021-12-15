@@ -9,7 +9,6 @@ namespace ASocket
         private TcpSocketListener _tcpSocketListener;
         private UdpSocket _udpSocketListener;
         private IPEndPoint _localEndPoint;
-        private bool _logEnable = true;
 
         private Dictionary<Socket, Peer> _peersBySocket = new Dictionary<Socket, Peer>();
         private Dictionary<EndPoint, Peer> _peersByUdpEndpoint = new Dictionary<EndPoint, Peer>();
@@ -18,11 +17,10 @@ namespace ASocket
         public event Action<Peer> PeerDisconnected;
         public event Action<Peer, byte[]> MessageReceived;
 
-        public SocketServer(bool logEnabled = false)
+        public SocketServer()
         {
-            _logEnable = logEnabled;
-            _tcpSocketListener = new TcpSocketListener(_logEnable);
-            _udpSocketListener = new UdpSocket(_logEnable);
+            _tcpSocketListener = new TcpSocketListener();
+            _udpSocketListener = new UdpSocket();
 
             Register();
         }
@@ -55,15 +53,16 @@ namespace ASocket
         {
             _localEndPoint = localEndPoint;
 
+            ASocket.Log.Log.Info($"[{nameof(SocketServer)}], Socket Server Starting on {localEndPoint}");
             try
             {
                 _tcpSocketListener.Start(_localEndPoint);
                 _udpSocketListener.StartServer(_localEndPoint);
+                ASocket.Log.Log.Info($"[{nameof(SocketServer)}], Socket Server Started on {localEndPoint}");
             }
             catch (Exception ex)
             {
-                Log($"Exception occured when Server starting..");
-                Log(ex.ToString());
+                ASocket.Log.Log.Error($"[{nameof(SocketServer)}], Exception occured when Server starting.. \n {ex}");
             }
         }
 
@@ -149,7 +148,7 @@ namespace ASocket
                     var port = BitConverter.ToInt32(portBytes, 0);
                     var endPoint = new IPEndPoint(new IPAddress(addressBytes), port);
                     peer.SetUdpEndpoint(endPoint);
-                    Log($"Peer udp endpoint is {endPoint}");
+                    ASocket.Log.Log.Verbose($"[{nameof(SocketServer)}], Peer udp endpoint is {endPoint}");
                     _peersByUdpEndpoint.Add(endPoint, peer);
                     PeerConnected?.Invoke(peer);
                 }
@@ -180,13 +179,5 @@ namespace ASocket
             }
         }
         #endregion
-
-        private void Log(string log)
-        {
-            if (_logEnable)
-            {
-                Console.WriteLine($"[{nameof(SocketServer)}], {log}");
-            }
-        }
     }
 }

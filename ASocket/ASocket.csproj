@@ -47,6 +47,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Log\Log.cs" />
     <Compile Include="MessageId.cs" />
     <Compile Include="PacketBuffer.cs" />
     <Compile Include="PacketFlag.cs" />

@@ -20,8 +20,6 @@ namespace ASocket
         private EndPoint _endPointFrom = new IPEndPoint(IPAddress.Any, 0);
         private UdpType _udpType = UdpType.None;
         
-        private bool _logEnable = false;
-        
         private AsyncCallback _receiveCallback = null;
         private AsyncCallback _sendCallback = null;
         
@@ -33,9 +31,8 @@ namespace ASocket
             public byte[] Buffer = new byte[PacketInformation.PacketSize];
         }
 
-        public UdpSocket(bool logEnabled = false)
+        public UdpSocket()
         {
-            _logEnable = logEnabled;
             _socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
             _receiveCallback = new AsyncCallback(EndReceive);
             _sendCallback = new AsyncCallback(EndSend);
@@ -59,7 +56,7 @@ namespace ASocket
                 _socket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.ReuseAddress, true);
                 _socket.Bind(endPoint);
                 Receive();
-                Log($"Udp Server Listening on {endPoint}");
+                ASocket.Log.Log.Info($"[{nameof(UdpSocket)}], Udp Server Listening on {endPoint}");
             }
             catch (Exception ex)
             {
@@ -78,6 +75,11 @@ namespace ASocket
             _socket.Connect(endPoint);
             LocalEndPoint = _socket.LocalEndPoint;
             Receive();
+        }
+        
+        public void Disconnect()
+        {
+            _socket.Close();
         }
 
         #region Send
@@ -100,7 +102,7 @@ namespace ASocket
             }
             catch (Exception ex)
             {
-                Log(ex.ToString());
+                ASocket.Log.Log.Error($"[{nameof(UdpSocket)}], {ex}");
             }
         }
         
@@ -123,7 +125,7 @@ namespace ASocket
             }
             catch (Exception ex)
             {
-                Log(ex.ToString());
+                ASocket.Log.Log.Error($"[{nameof(UdpSocket)}], {ex}");
             }
         }
         
@@ -135,7 +137,7 @@ namespace ASocket
             }
             catch (Exception ex)
             {
-                Log(ex.ToString());
+                ASocket.Log.Log.Error($"[{nameof(UdpSocket)}], {ex}");
             }
         }
         
@@ -151,7 +153,7 @@ namespace ASocket
             }
             catch (Exception ex)
             {
-                Log(ex.ToString());
+                ASocket.Log.Log.Error($"[{nameof(UdpSocket)}], {ex}");
             }
         }
         
@@ -170,23 +172,10 @@ namespace ASocket
             }
             catch (Exception ex)
             {
-                Log(ex.ToString());
-                return;
+                ASocket.Log.Log.Error($"[{nameof(UdpSocket)}], {ex}");
             }
         }
         
         #endregion
-
-        private void Log(string log)
-        {
-            if (_logEnable)
-            {
-                Console.WriteLine($"[{nameof(UdpSocket)}] [{_udpType}], {log}");
-            }
-        }
-        public void Disconnect()
-        {
-            _socket.Close();
-        }
     }
 }

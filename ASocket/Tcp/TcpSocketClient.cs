@@ -11,7 +11,6 @@ namespace ASocket
         {
             public byte[] Buffer = new byte[PacketInformation.PacketSize];
             public int LastReceivedBytes { get; set; }
-            
             public TcpSocketClient TcpSocketClient { get; set; }
         }
         
@@ -19,8 +18,6 @@ namespace ASocket
         private IPEndPoint _remoteEndPoint;
         private EndPoint _localEndPoint;
         private State _state;
-
-        private bool _logEnable = false;
 
         private AsyncCallback _connectAsyncCallback;
         private AsyncCallback _receiveAsyncCallback;
@@ -36,13 +33,12 @@ namespace ASocket
         public event Action Disconnected;
         public event MessageReceivedDelegate MessageReceived;
 
-        public bool IsConnected => _socket != null && _socket.Connected;
+        public bool IsConnected => _socket is { Connected: true };
         public EndPoint LocalEndPoint => _localEndPoint;
         public EndPoint RemoteEndPoint => _remoteEndPoint;
 
-        public TcpSocketClient(bool logEnabled = false)
+        public TcpSocketClient()
         {
-            _logEnable = logEnabled;
             _connectAsyncCallback = new AsyncCallback(EndConnect);
             _receiveAsyncCallback = new AsyncCallback(EndReceive);
             _sendAsyncCallback = new AsyncCallback(EndSend);
@@ -115,9 +111,8 @@ namespace ASocket
             }
             catch (SocketException socketException)
             {
-                Log($"Exception when connecting to server.");
+                ASocket.Log.Log.Error($"[{nameof(TcpSocketClient)}], Exception when connecting to server.");
                 ConnectionFailedInterval?.Invoke(_state);
-                throw socketException;
             }
         }
 
@@ -132,9 +127,8 @@ namespace ASocket
             }
             catch (SocketException socketException)
             {
-                Log($"Exception when connecting to server.");
+                ASocket.Log.Log.Error($"[{nameof(TcpSocketClient)}], Exception when connecting to server.");
                 ConnectionFailedInterval?.Invoke(_state);
-                throw socketException;
             }
         }
         
@@ -156,21 +150,28 @@ namespace ASocket
             }
             catch (SocketException socketException)
             {
-                throw socketException;
+                ASocket.Log.Log.Error($"[{nameof(TcpSocketClient)}], \n {socketException}");
             }
             catch (ArgumentOutOfRangeException argumentOutOfRangeException)
             {
-                throw argumentOutOfRangeException;
+                ASocket.Log.Log.Error($"[{nameof(TcpSocketClient)}], \n {argumentOutOfRangeException}");
             }
             catch (ObjectDisposedException objectDisposedException)
             {
-                Log($"Socket dispossed.");
+                ASocket.Log.Log.Error($"[{nameof(TcpSocketClient)}], Socket Disposed \n {objectDisposedException}");
             }
         }
         
         private void EndSend(IAsyncResult ar)
         {
-            int bytes = _socket.EndSend(ar, out var errorCode);
+            try
+            {
+                int bytes = _socket.EndSend(ar, out var errorCode);
+            }
+            catch (Exception ex)
+            {
+                ASocket.Log.Log.Error($"[{nameof(TcpSocketClient)}], {ex}");
+            }
             //TODO: Handle Error code
             //Log($"EndSend Error Code is {errorCode}");
         }
@@ -188,16 +189,17 @@ namespace ASocket
             }
             catch (SocketException socketException)
             {
+                ASocket.Log.Log.Info($"[{nameof(TcpSocketClient)}], Socket Exception, Disconnecting..");
                 DisconnectedInterval?.Invoke(_state);
                 return;
             }
             catch (ArgumentOutOfRangeException argumentOutOfRangeException)
             {
-                throw argumentOutOfRangeException;
+                ASocket.Log.Log.Error($"[{nameof(TcpSocketClient)}], {argumentOutOfRangeException}");
             }
             catch (ObjectDisposedException objectDisposedException)
             {
-                Log($"Socket dispossed.");
+                ASocket.Log.Log.Error($"[{nameof(TcpSocketClient)}], {objectDisposedException}");
             }
         }
         
@@ -233,7 +235,7 @@ namespace ASocket
         {
             if (state.TcpSocketClient != this)
                 return;
-            Log($"Connected.");
+            ASocket.Log.Log.Info($"[{nameof(TcpSocketClient)}], Connected..");
             Connected?.Invoke();
         }
 
@@ -242,7 +244,7 @@ namespace ASocket
             if (state.TcpSocketClient != this)
                 return;
             
-            Log($"ConnectionFailed.");
+            ASocket.Log.Log.Info($"[{nameof(TcpSocketClient)}], ConnectionFailed.");
             ConnectionFailed?.Invoke();
         }
 
@@ -251,7 +253,7 @@ namespace ASocket
             if (state.TcpSocketClient != this)
                 return;
 
-            Log($"Disconnected.");
+            ASocket.Log.Log.Info($"[{nameof(TcpSocketClient)}], Disconnected.");
             SocketDispose();
             Disconnected?.Invoke();
         }
@@ -264,18 +266,10 @@ namespace ASocket
             var epFrom = _socket.RemoteEndPoint;
             var bytes = state.LastReceivedBytes;
             var stringMessage = Encoding.ASCII.GetString(state.Buffer, 0, bytes);
-            //Log($"RECV: {epFrom}: {bytes}, {stringMessage}");
+            //ASocket.Log.Log.Verbose($"[{nameof(TcpSocketClient)}], Message Received {bytes}.");
             MessageReceived?.Invoke(ref state.Buffer, state.LastReceivedBytes);
         }
         
         #endregion
-
-        private void Log(string log)
-        {
-            if (_logEnable)
-            {
-                Console.WriteLine($"[{nameof(TcpSocketClient)}], {log}");
-            }
-        }
     }
 }

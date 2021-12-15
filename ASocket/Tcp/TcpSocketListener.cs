@@ -23,8 +23,6 @@ namespace ASocket
         private IPEndPoint _localEP;
         private List<ClientState> _clientStates;
 
-        private bool _logEnable = false;
-
         private static Action<TcpSocketListener, Socket> ConnectionAccepted;
         private static Action<ClientState> MessageReceivedInterval;
         private static Action<ClientState> DisconnectedInternal;
@@ -38,9 +36,8 @@ namespace ASocket
         private AsyncCallback _endSendCallback;
         private AsyncCallback _endDisconnectCallback;
 
-        public TcpSocketListener(bool logEnabled = false)
+        public TcpSocketListener()
         {
-            _logEnable = logEnabled;
             _clientStates = new List<ClientState>();
             InitializeCallbacks();
             Register();
@@ -87,22 +84,22 @@ namespace ASocket
             {
                 _localEP = localEP;
                 _socket = new Socket(_localEP.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
-                Log($"Start binding. {_localEP}");
+                ASocket.Log.Log.Info($"[{nameof(TcpSocketListener)}], Start listening on {_localEP}");
                 _socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.DontLinger, true);
                 _socket.Bind(_localEP);
                 _socket.Listen(100);
+                ASocket.Log.Log.Info($"[{nameof(TcpSocketListener)}], Started listening on {_localEP}");
                 
                 BeginAccept();
-                Log($"Started Binding.");
             }
             catch (SocketException socketException)
             {
-                Log(socketException.ToString());
+                ASocket.Log.Log.Error($"[{nameof(TcpSocketListener)}], {socketException}");
                 throw socketException;
             }
             catch (ObjectDisposedException objectDisposedException)
             {
-                Log($"Socket disposed");
+                ASocket.Log.Log.Error($"[{nameof(TcpSocketListener)}], {objectDisposedException}");
                 throw objectDisposedException;
             }
         }
@@ -112,7 +109,7 @@ namespace ASocket
             var clientState = FindClientSate(socket);
             if (clientState == null)
             {
-                Log($"Cannot find socket for send data.");
+                ASocket.Log.Log.Info($"[{nameof(TcpSocketListener)}], Cannot find socket for send data.");
                 return;
             }
             BeginSend(clientState, data, length);
@@ -171,7 +168,7 @@ namespace ASocket
             var clientState = FindClientSate(socket);
             if (clientState == null)
             {
-                Log($"Cannot find socket for send data.");
+                ASocket.Log.Log.Info($"[{nameof(TcpSocketListener)}], Cannot find socket for disconnect.");
                 return;
             }
             clientState.Socket.Close();
@@ -203,16 +200,15 @@ namespace ASocket
             }
             catch (SocketException socketException)
             {
-                throw socketException;
-                //Disconnect maybe.
+                ASocket.Log.Log.Error($"[{nameof(TcpSocketListener)}], {socketException}.");
             }
             catch (ArgumentOutOfRangeException argumentOutOfRangeException)
             {
-                throw argumentOutOfRangeException;
+                ASocket.Log.Log.Error($"[{nameof(TcpSocketListener)}], {argumentOutOfRangeException}.");
             }
             catch (ObjectDisposedException objectDisposedException)
             {
-                Log($"Socket dispossed.");
+                ASocket.Log.Log.Error($"[{nameof(TcpSocketListener)}], Socket dispossed.");
             }
         }
 
@@ -235,7 +231,7 @@ namespace ASocket
             }
             catch (SocketException socketException)
             {
-                Log($"BeginReceive socketException");
+                ASocket.Log.Log.Error($"[{nameof(TcpSocketListener)}], {socketException}");
                 DisconnectedInternal?.Invoke(clientState);
                 return;
             }
@@ -245,7 +241,7 @@ namespace ASocket
             }
             catch (ObjectDisposedException objectDisposedException)
             {
-                Log($"BeginReceive objectDisposedException");
+                ASocket.Log.Log.Error($"[{nameof(TcpSocketListener)}], {objectDisposedException}");
                 DisconnectedInternal?.Invoke(clientState);
                 return;
             }
@@ -268,12 +264,12 @@ namespace ASocket
             }
             catch (SocketException socketException)
             {
-                Log($"EndReceive socketException");
+                ASocket.Log.Log.Error($"[{nameof(TcpSocketListener)}], {socketException}");
                 DisconnectedInternal?.Invoke(state);
             }
             catch (ObjectDisposedException objectDisposedException)
             {
-                Log($"EndReceive objectDisposedException");
+                ASocket.Log.Log.Error($"[{nameof(TcpSocketListener)}], {objectDisposedException}");
                 DisconnectedInternal?.Invoke(state);
             }
         }
@@ -285,7 +281,7 @@ namespace ASocket
             if (tcpSocketListener != this)
                 return;
 
-            Log($"OnConnectionAccepted {socket.RemoteEndPoint}");
+            ASocket.Log.Log.Info($"[{nameof(TcpSocketListener)}], OnConnectionAccepted {socket.RemoteEndPoint}");
             ClientState clientState = new ClientState()
             {
                 Socket = socket,
@@ -314,17 +310,9 @@ namespace ASocket
             if (clientState.TcpSocketListener != this)
                 return;
             _clientStates.Remove(clientState);
-            Log($"Disconnected {clientState.RemoteEndPoint}");
+            ASocket.Log.Log.Info($"[{nameof(TcpSocketListener)}], Disconnected {clientState.RemoteEndPoint}");
             Disconnected?.Invoke(clientState.Socket);
         }
         #endregion
-
-        private void Log(string log)
-        {
-            if (_logEnable)
-            {
-                Console.WriteLine($"[{nameof(TcpSocketListener)}], {log}");
-            }
-        }
     }
 }
