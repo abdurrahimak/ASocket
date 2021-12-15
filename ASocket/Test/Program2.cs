@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Text;
+using ASocket.Log;
 namespace ASocket
 {
     class Program2
@@ -11,8 +12,10 @@ namespace ASocket
         private static SocketServer _socketServer = new SocketServer(null);
         private static List<Peer> _peers = new List<Peer>();
         private static List<SocketClient> _socketClients = new List<SocketClient>();
-        static void Main2(string[] args)
+        static void Main(string[] args)
         {
+            Log.Log.SetLogLevel(LogLevel.Verbose | LogLevel.Info | LogLevel.Error);
+
             _socketServer.PeerConnected += (peer) =>
             {
                 _peers.Add(peer);

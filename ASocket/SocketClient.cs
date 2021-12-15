@@ -64,7 +64,10 @@ namespace ASocket
             }
             catch (Exception ex)
             {
-                ASocket.Log.Log.Error($"[{nameof(SocketClient)}], Exception occured when Client connecting.. \n {ex}");
+                AddDispatcherQueue(() =>
+                {
+                    ASocket.Log.Log.Error($"[{nameof(SocketClient)}], Exception occured when Client connecting.. \n {ex}");
+                });
                 _tcpSocketClient.Disconnect();
                 _udpSocket?.Disconnect();
             }
@@ -87,7 +90,10 @@ namespace ASocket
         {
             if (!_tcpSocketClient.IsConnected)
             {
-                ASocket.Log.Log.Info($"[{nameof(SocketClient)}] [Send], Client not connected.");
+                AddDispatcherQueue(() =>
+                {
+                    ASocket.Log.Log.Info($"[{nameof(SocketClient)}] [Send], Client not connected.");
+                });
                 return;
             }
 
@@ -121,6 +127,7 @@ namespace ASocket
             SendUdpInformation();
             AddDispatcherQueue(() =>
             {
+                ASocket.Log.Log.Info($"[{nameof(SocketClient)}] Connected.");
                 Connected?.Invoke();
             });
         }
@@ -129,6 +136,7 @@ namespace ASocket
         {
             AddDispatcherQueue(() =>
             {
+                ASocket.Log.Log.Info($"[{nameof(SocketClient)}] ConnectionFailed.");
                 ConnectionFailed?.Invoke();
             });
         }
@@ -137,6 +145,7 @@ namespace ASocket
         {
             AddDispatcherQueue(() =>
             {
+                ASocket.Log.Log.Info($"[{nameof(SocketClient)}] Disconnected.");
                 Disconnected?.Invoke();
             });
         }

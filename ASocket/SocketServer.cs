@@ -54,16 +54,25 @@ namespace ASocket
         {
             _localEndPoint = localEndPoint;
 
-            ASocket.Log.Log.Info($"[{nameof(SocketServer)}], Socket Server Starting on {localEndPoint}");
+            AddDispatcherQueue(() =>
+            {
+                ASocket.Log.Log.Info($"[{nameof(SocketServer)}], Socket Server Starting on {localEndPoint}");
+            });
             try
             {
                 _tcpSocketListener.Start(_localEndPoint);
                 _udpSocketListener.StartServer(_localEndPoint);
-                ASocket.Log.Log.Info($"[{nameof(SocketServer)}], Socket Server Started on {localEndPoint}");
+                AddDispatcherQueue(() =>
+                {
+                    ASocket.Log.Log.Info($"[{nameof(SocketServer)}], Socket Server Started on {localEndPoint}");
+                });
             }
             catch (Exception ex)
             {
-                ASocket.Log.Log.Error($"[{nameof(SocketServer)}], Exception occured when Server starting.. \n {ex}");
+                AddDispatcherQueue(() =>
+                {
+                    ASocket.Log.Log.Error($"[{nameof(SocketServer)}], Exception occured when Server starting.. \n {ex}");
+                });
             }
         }
 
@@ -150,10 +159,10 @@ namespace ASocket
                     var port = BitConverter.ToInt32(portBytes, 0);
                     var endPoint = new IPEndPoint(new IPAddress(addressBytes), port);
                     peer.SetUdpEndpoint(endPoint);
-                    ASocket.Log.Log.Verbose($"[{nameof(SocketServer)}], Peer udp endpoint is {endPoint}");
                     _peersByUdpEndpoint.Add(endPoint, peer);
                     AddDispatcherQueue(() =>
                     {
+                        ASocket.Log.Log.Verbose($"[{nameof(SocketServer)}], Peer udp endpoint is {endPoint}");
                         PeerConnected?.Invoke(peer);
                     });
                 }

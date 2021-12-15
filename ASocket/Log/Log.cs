@@ -26,7 +26,7 @@ namespace ASocket.Log
             if (_logLevel.HasFlag(LogLevel.Verbose))
             {
                 Console.WriteLine(log);
-                LogEvent.Invoke(LogLevel.Verbose, log);
+                LogEvent?.Invoke(LogLevel.Verbose, log);
             }
         }
         
@@ -35,7 +35,7 @@ namespace ASocket.Log
             if (_logLevel.HasFlag(LogLevel.Info))
             {
                 Console.WriteLine(log);
-                LogEvent.Invoke(LogLevel.Verbose, log);
+                LogEvent?.Invoke(LogLevel.Verbose, log);
             }
         }
         
@@ -44,7 +44,7 @@ namespace ASocket.Log
             if (_logLevel.HasFlag(LogLevel.Error))
             {
                 Console.WriteLine(log);
-                LogEvent.Invoke(LogLevel.Verbose, log);
+                LogEvent?.Invoke(LogLevel.Verbose, log);
             }
         }
     }
