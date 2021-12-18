@@ -97,14 +97,49 @@ namespace ASocket
                 return;
             }
 
-            var length = _sendBuffer.SetMessage(MessageId.None, data);
+            var messageLength = _sendBuffer.CreateMessage(MessageId.None, data.AsSpan());
+            SendMessage(messageLength, packetFlag);
+        }
+
+        public void Send(ReadOnlyMemory<byte> data, PacketFlag packetFlag)
+        {
+            if (!_tcpSocketClient.IsConnected)
+            {
+                AddDispatcherQueue(() =>
+                {
+                    ASocket.Log.Log.Info($"[{nameof(SocketClient)}] [Send], Client not connected.");
+                });
+                return;
+            }
+
+            var messageLength = _sendBuffer.CreateMessage(MessageId.None, data.Span);
+            SendMessage(messageLength, packetFlag);
+        }
+
+        public void Send(ReadOnlySpan<byte> data, PacketFlag packetFlag)
+        {
+            if (!_tcpSocketClient.IsConnected)
+            {
+                AddDispatcherQueue(() =>
+                {
+                    ASocket.Log.Log.Info($"[{nameof(SocketClient)}] [Send], Client not connected.");
+                });
+                return;
+            }
+
+            var messageLength = _sendBuffer.CreateMessage(MessageId.None, data);
+            SendMessage(messageLength, packetFlag);
+        }
+
+        private void SendMessage(int length, PacketFlag packetFlag)
+        {
             if (packetFlag == PacketFlag.Tcp)
             {
-                _tcpSocketClient.Send(_sendBuffer.Buffer, length);
+                _tcpSocketClient.Send(_sendBuffer.BufferArray, length);
             }
             else if (packetFlag == PacketFlag.Udp)
             {
-                _udpSocket.Send(_sendBuffer.Buffer, length);
+                _udpSocket.Send(_sendBuffer.BufferArray, length);
             }
         }
 
@@ -116,8 +151,8 @@ namespace ASocket
             var data = new byte[addressBytes.Length + portBytes.Length];
             System.Buffer.BlockCopy(addressBytes, 0, data, 0, addressBytes.Length);
             System.Buffer.BlockCopy(portBytes, 0, data, addressBytes.Length, portBytes.Length);
-            var length = _sendBuffer.SetMessage(MessageId.UdpInformation, data);
-            _tcpSocketClient.Send(_sendBuffer.Buffer, length);
+            var length = _sendBuffer.CreateMessage(MessageId.UdpInformation, data.AsSpan());
+            _tcpSocketClient.Send(_sendBuffer.BufferArray, length);
         }
 
         #region Event Listeners
@@ -150,20 +185,21 @@ namespace ASocket
             });
         }
 
-        private void OnTcpSocketMessageReceived(ref byte[] buffer, int bytes)
+        private void OnTcpSocketMessageReceived(ReadOnlyMemory<byte> buffer)
         {
             if (_readTcpBuffer.PacketCompleted)
             {
                 _readTcpBuffer.Reset();
             }
 
-            _readTcpBuffer.WriteBuffer(buffer, bytes);
+            _readTcpBuffer.WriteToBuffer(buffer.Span);
 
             if (_readTcpBuffer.PacketCompleted)
             {
+                var message = _readTcpBuffer.GetMessage();
                 AddDispatcherQueue(() =>
                 {
-                    MessageReceived?.Invoke(_readTcpBuffer.GetMessage());
+                    MessageReceived?.Invoke(message);
                 });
             }
         }
@@ -175,13 +211,14 @@ namespace ASocket
                 _readUdpBuffer.Reset();
             }
 
-            _readUdpBuffer.WriteBuffer(buffer, bytes);
+            _readUdpBuffer.WriteToBuffer(buffer, bytes);
 
             if (_readUdpBuffer.PacketCompleted)
             {
+                var message = _readUdpBuffer.GetMessage();
                 AddDispatcherQueue(() =>
                 {
-                    MessageReceived?.Invoke(_readUdpBuffer.GetMessage());
+                    MessageReceived?.Invoke(message);
                 });
             }
         }

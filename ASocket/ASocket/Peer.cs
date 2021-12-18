@@ -1,8 +1,9 @@
+using System;
 using System.Net;
 using System.Net.Sockets;
 namespace ASocket
 {
-    public class Peer
+    public class Peer : IDisposable
     {
         public EndPoint UdpRemoteEndPoint { get; private set; }
         public EndPoint TcpRemoteEndPoint { get; private set; }
@@ -24,6 +25,14 @@ namespace ASocket
         {
             TcpSocket = socket;
             TcpRemoteEndPoint = TcpSocket.RemoteEndPoint;
+        }
+        
+        public void Dispose()
+        {
+            SendBuffer?.Dispose();
+            ReadTcpBuffer?.Dispose();
+            ReadUdpBuffer?.Dispose();
+            TcpSocket?.Dispose();
         }
     }
 }

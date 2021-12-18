@@ -2,6 +2,7 @@
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using System.Threading.Tasks;
 namespace ASocket
 {
     internal class UdpSocket : IDisposable
@@ -105,6 +106,26 @@ namespace ASocket
                 ASocket.Log.Log.Error($"[{nameof(UdpSocket)}], {ex}");
             }
         }
+
+        public void Send(ReadOnlyMemory<byte> data)
+        {
+            if (_udpType == UdpType.Listener)
+            {
+                throw new Exception($"Send Interface only the clients. If socket is listener then use the SendTo interface");
+            }
+            
+            var task = Task.Factory.StartNew(async () =>
+            {
+                try
+                {
+                    await _socket.SendAsync(data, SocketFlags.None);
+                }
+                catch (Exception ex)
+                {
+                    ASocket.Log.Log.Error($"[{nameof(TcpSocketClient)}], [SendAsync] \n {ex}");
+                }
+            });
+        }
         
         /// <summary>
         /// Server Interface
@@ -122,6 +143,22 @@ namespace ASocket
             try
             {
                 _socket.BeginSendTo(data, 0, length, SocketFlags.None, endPoint, _sendCallback, _state);
+            }
+            catch (Exception ex)
+            {
+                ASocket.Log.Log.Error($"[{nameof(UdpSocket)}], {ex}");
+            }
+        }
+        
+        public void SendTo(EndPoint endPoint, ReadOnlyMemory<byte> data)
+        {
+            if (_udpType == UdpType.Client)
+            {
+                throw new Exception($"Send Interface only the server. If socket is client then use the Send interface");
+            }
+            try
+            {
+                _socket.BeginSendTo(data.ToArray(), 0, data.Length, SocketFlags.None, endPoint, _sendCallback, _state);
             }
             catch (Exception ex)
             {

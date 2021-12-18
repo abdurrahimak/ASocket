@@ -4,9 +4,11 @@ namespace ASocket.Log
     [Flags]
     public enum LogLevel
     {
-        Verbose,
-        Info,
-        Error
+        None = 0,
+        Verbose = 1 << 1,
+        Info = 2 << 1,
+        Error = 3 << 1,
+        All = Verbose | Info | Error,
     }
     
     public static class Log

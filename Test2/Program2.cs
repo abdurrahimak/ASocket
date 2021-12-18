@@ -91,7 +91,7 @@ namespace ASocketTest
 
                             if (sendAll)
                             {
-                                _socketServer.SendAll(data, packetFlag);
+                                _socketServer.SendAll(new ReadOnlySpan<byte>(data), packetFlag);
                             }
                             else
                             {
@@ -118,7 +118,7 @@ namespace ASocketTest
                             int index = Int32.Parse(commands[3]);
                             string message = commands[4];
                             var data = Encoding.UTF8.GetBytes(message);
-                            _socketClients[index].Send(data, packetFlag);
+                            _socketClients[index].Send(new ReadOnlySpan<byte>(data), packetFlag);
                         }
                         Console.WriteLine($"");
                     }

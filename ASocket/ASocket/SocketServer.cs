@@ -91,15 +91,21 @@ namespace ASocket
         #region Send Message
         public void Send(Peer peer, byte[] data, PacketFlag packetFlag)
         {
-            var length = peer.SendBuffer.SetMessage(MessageId.None, data);
-            if (packetFlag == PacketFlag.Tcp)
-            {
-                _tcpSocketListener.Send(peer.TcpSocket, peer.SendBuffer.Buffer, length);
-            }
-            else if (packetFlag == PacketFlag.Udp && peer.UdpReady)
-            {
-                _udpSocketListener.SendTo(peer.UdpRemoteEndPoint, peer.SendBuffer.Buffer, length);
-            }
+            var length = peer.SendBuffer.CreateMessage(MessageId.None, data.AsSpan());
+            SendMessage(peer, length, packetFlag);
+        }
+        
+        public void Send(Peer peer, ReadOnlyMemory<byte> data, PacketFlag packetFlag)
+        {
+            var length = peer.SendBuffer.CreateMessage(MessageId.None, data);
+            SendMessage(peer, length, packetFlag);
+        }
+        
+        public void Send(Peer peer, ReadOnlySpan<byte> data, PacketFlag packetFlag)
+        {
+            //TODO: 1KB Allocation when send any message. Find it.
+            var length = peer.SendBuffer.CreateMessage(MessageId.None, data);
+            SendMessage(peer, length, packetFlag);
         }
 
         public void SendAll(byte[] data, PacketFlag packetFlag)
@@ -107,6 +113,34 @@ namespace ASocket
             foreach (var peerBySocketKvp in _peersBySocket)
             {
                 Send(peerBySocketKvp.Value, data, packetFlag);
+            }
+        }
+
+        public void SendAll(ReadOnlyMemory<byte> data, PacketFlag packetFlag)
+        {
+            foreach (var peerBySocketKvp in _peersBySocket)
+            {
+                Send(peerBySocketKvp.Value, data, packetFlag);
+            }
+        }
+
+        public void SendAll(ReadOnlySpan<byte> data, PacketFlag packetFlag)
+        {
+            foreach (var peerBySocketKvp in _peersBySocket)
+            {
+                Send(peerBySocketKvp.Value, data, packetFlag);
+            }
+        }
+
+        private void SendMessage(Peer peer, int length, PacketFlag packetFlag)
+        {
+            if (packetFlag == PacketFlag.Tcp)
+            {
+                _tcpSocketListener.Send(peer.TcpSocket, peer.SendBuffer.BufferArray, length);
+            }
+            else if (packetFlag == PacketFlag.Udp && peer.UdpReady)
+            {
+                _udpSocketListener.SendTo(peer.UdpRemoteEndPoint, peer.SendBuffer.BufferArray, length);
             }
         }
         #endregion
@@ -128,6 +162,7 @@ namespace ASocket
                 {
                     _peersByUdpEndpoint.Remove(peer.UdpRemoteEndPoint);
                 }
+                peer.Dispose();
                 AddDispatcherQueue(() =>
                 {
                     PeerDisconnected?.Invoke(peer);
@@ -135,7 +170,7 @@ namespace ASocket
             }
         }
 
-        private void OnTcpSocketMessageReceived(Socket socket, ref byte[] buffer, int bytes)
+        private void OnTcpSocketMessageReceived(Socket socket, ReadOnlyMemory<byte> buffer)
         {
             var peer = _peersBySocket[socket];
 
@@ -144,10 +179,10 @@ namespace ASocket
                 peer.ReadTcpBuffer.Reset();
             }
 
-            peer.ReadTcpBuffer.WriteBuffer(buffer, bytes);
+            peer.ReadTcpBuffer.WriteToBuffer(buffer.Span);
 
             if (peer.ReadTcpBuffer.PacketCompleted)
-            {
+            {                         
                 MessageId messageId = peer.ReadTcpBuffer.MessageID;
                 if (messageId == MessageId.UdpInformation)
                 {
@@ -168,9 +203,10 @@ namespace ASocket
                 }
                 else
                 {
+                    var message = peer.ReadTcpBuffer.GetMessage();
                     AddDispatcherQueue(() =>
                     {
-                        MessageReceived?.Invoke(peer, peer.ReadTcpBuffer.GetMessage());
+                        MessageReceived?.Invoke(peer, message);
                     });
                 }
             }
@@ -188,13 +224,14 @@ namespace ASocket
                 peer.ReadUdpBuffer.Reset();
             }
 
-            peer.ReadUdpBuffer.WriteBuffer(buffer, bytes);
+            peer.ReadUdpBuffer.WriteToBuffer(buffer, bytes);
 
             if (peer.ReadUdpBuffer.PacketCompleted)
             {
+                var message = peer.ReadUdpBuffer.GetMessage();
                 AddDispatcherQueue(() =>
                 {
-                    MessageReceived?.Invoke(peer, peer.ReadUdpBuffer.GetMessage());
+                    MessageReceived?.Invoke(peer, message);
                 });
             }
         }

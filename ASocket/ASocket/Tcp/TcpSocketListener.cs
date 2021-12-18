@@ -1,22 +1,32 @@
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 namespace ASocket
 {
     internal class TcpSocketListener : IDisposable
     {
-        public delegate void MessageReceivedDelegate(Socket socket, ref byte[] buffer, int bytes);
-
-        private class ClientState
+        private class ClientState : IDisposable
         {
             public Socket Socket;
-            public byte[] Buffer = new byte[PacketInformation.PacketSize];
+            
+            //TODO: change the memory buffer if unity support the .netstandart 2.1 all
+            //public readonly IMemoryOwner<byte> Buffer = MemoryPool<byte>.Shared.Rent(PacketInformation.PacketSize);
+            public readonly ArraySegment<byte> Buffer = new ArraySegment<byte>(new byte[PacketInformation.PacketSize]);
             public int LastReceivedBytes;
 
             public TcpSocketListener TcpSocketListener;
             public EndPoint RemoteEndPoint { get; set; }
+            
+            public void Dispose()
+            {
+                Socket?.Dispose();
+                //Buffer?.Dispose();
+            }
         }
 
         private Socket _socket;
@@ -29,7 +39,7 @@ namespace ASocket
 
         public event Action<Socket> Connected;
         public event Action<Socket> Disconnected;
-        public event MessageReceivedDelegate MessageReceived;
+        public event Action<Socket, ReadOnlyMemory<byte>> MessageReceived;
 
         private AsyncCallback _endAcceptCallback;
         private AsyncCallback _endReceiveCallback;
@@ -54,14 +64,14 @@ namespace ASocket
         private void Register()
         {
             ConnectionAccepted += OnConnectionAccepted;
-            MessageReceivedInterval += OnMessageReceivedInterval;
+            MessageReceivedInterval += OnMessageReceivedInternal;
             DisconnectedInternal += OnDisconnectedInternal;
         }
 
         private void Unregister()
         {
             ConnectionAccepted -= OnConnectionAccepted;
-            MessageReceivedInterval -= OnMessageReceivedInterval;
+            MessageReceivedInterval -= OnMessageReceivedInternal;
             DisconnectedInternal -= OnDisconnectedInternal;
         }
 
@@ -101,25 +111,6 @@ namespace ASocket
             {
                 ASocket.Log.Log.Error($"[{nameof(TcpSocketListener)}], {objectDisposedException}");
                 throw objectDisposedException;
-            }
-        }
-
-        public void Send(Socket socket, byte[] data, int length)
-        {
-            var clientState = FindClientSate(socket);
-            if (clientState == null)
-            {
-                ASocket.Log.Log.Info($"[{nameof(TcpSocketListener)}], Cannot find socket for send data.");
-                return;
-            }
-            BeginSend(clientState, data, length);
-        }
-
-        public void SendAll(byte[] data, int length)
-        {
-            foreach (var clientState in _clientStates)
-            {
-                BeginSend(clientState, data, length);
             }
         }
 
@@ -191,6 +182,37 @@ namespace ASocket
         #endregion
 
         #region Send
+
+        public void Send(Socket socket, byte[] data, int length)
+        {
+            var clientState = FindClientSate(socket);
+            if (clientState == null)
+            {
+                ASocket.Log.Log.Info($"[{nameof(TcpSocketListener)}], Cannot find socket for send data.");
+                return;
+            }
+            BeginSend(clientState, data, length);
+        }
+
+        public void Send(Socket socket, ReadOnlyMemory<byte> data)
+        {
+            var clientState = FindClientSate(socket);
+            if (clientState == null)
+            {
+                ASocket.Log.Log.Info($"[{nameof(TcpSocketListener)}], Cannot find socket for send data.");
+                return;
+            }
+            BeginSend(clientState, data.ToArray(), data.Length);
+        }
+
+        public void SendAll(byte[] data, int length)
+        {
+            foreach (var clientState in _clientStates)
+            {
+                BeginSend(clientState, data, length);
+            }
+        }
+
         private void BeginSend(ClientState clientState, byte[] data, int length)
         {
             //TODO: Handle Exceptions.
@@ -222,12 +244,38 @@ namespace ASocket
         #endregion
 
         #region Receive
+
+        private void CreateReadThread(ClientState clientState)
+        {
+            Task.Run(async () =>
+            {
+                while (true)
+                {
+                    try
+                    {
+                        var bytes = await clientState.Socket.ReceiveAsync(clientState.Buffer, SocketFlags.None);
+                        if (bytes > 0)
+                        {
+                            clientState.LastReceivedBytes = bytes;
+                            MessageReceivedInterval?.Invoke(clientState);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        ASocket.Log.Log.Error($"[{nameof(TcpSocketListener)}], {ex}");
+                        DisconnectedInternal?.Invoke(clientState);
+                        break;
+                    }
+                }
+            });
+        }
+        
         private void BeginReceive(ClientState clientState)
         {
-            //TODO: Handle Exceptions.
             try
             {
-                clientState.Socket.BeginReceive(clientState.Buffer, 0, clientState.Buffer.Length, SocketFlags.None, _endReceiveCallback, clientState);
+                //TODO: Closed.
+                //clientState.Socket.BeginReceive(clientState.Buffer, 0, clientState.Buffer.Length, SocketFlags.None, _endReceiveCallback, clientState);
             }
             catch (SocketException socketException)
             {
@@ -290,19 +338,17 @@ namespace ASocket
             };
             _clientStates.Add(clientState);
             Connected?.Invoke(socket);
-            BeginReceive(clientState);
+            CreateReadThread(clientState);
         }
 
-        private void OnMessageReceivedInterval(ClientState clientState)
+        private void OnMessageReceivedInternal(ClientState clientState)
         {
             if (clientState.TcpSocketListener != this)
                 return;
 
-            var epFrom = clientState.Socket.RemoteEndPoint;
             var bytes = clientState.LastReceivedBytes;
-            var stringMessage = Encoding.UTF8.GetString(clientState.Buffer, 0, bytes);
-            //Log($"RECV: {epFrom.ToString()}: {bytes}, {stringMessage}");
-            MessageReceived?.Invoke(clientState.Socket, ref clientState.Buffer, clientState.LastReceivedBytes);
+            var readonlyMemory = clientState.Buffer[..bytes].AsMemory();
+            MessageReceived?.Invoke(clientState.Socket, readonlyMemory);
         }
 
         private void OnDisconnectedInternal(ClientState clientState)
@@ -310,6 +356,7 @@ namespace ASocket
             if (clientState.TcpSocketListener != this)
                 return;
             _clientStates.Remove(clientState);
+            clientState.Dispose();
             ASocket.Log.Log.Info($"[{nameof(TcpSocketListener)}], Disconnected {clientState.RemoteEndPoint}");
             Disconnected?.Invoke(clientState.Socket);
         }
