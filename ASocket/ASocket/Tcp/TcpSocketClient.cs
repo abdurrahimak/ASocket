@@ -96,7 +96,7 @@ namespace ASocket
                 return;
             _socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             _remoteEndPoint = remoteEndPoint;
-            _socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.DontLinger, true);
+            _socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Linger, true);
 
             BeginConnect();
         }

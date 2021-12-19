@@ -95,11 +95,11 @@ namespace ASocket
                 _localEP = localEP;
                 _socket = new Socket(_localEP.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
                 ASocket.Log.Log.Info($"[{nameof(TcpSocketListener)}], Start listening on {_localEP}");
-                _socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.DontLinger, true);
+                _socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Linger, true);
                 _socket.Bind(_localEP);
                 _socket.Listen(100);
                 ASocket.Log.Log.Info($"[{nameof(TcpSocketListener)}], Started listening on {_localEP}");
-                
+
                 BeginAccept();
             }
             catch (SocketException socketException)
@@ -136,11 +136,18 @@ namespace ASocket
 
         private void EndAccept(IAsyncResult ar)
         {
-            //TODO : End accept byte buffer
-            TcpSocketListener tcpSocketListener = (TcpSocketListener)ar.AsyncState;
-            var socket = _socket.EndAccept(ar);
-            ConnectionAccepted?.Invoke(tcpSocketListener, socket);
-            BeginAccept();
+            try
+            {
+                //TODO : End accept byte buffer
+                TcpSocketListener tcpSocketListener = (TcpSocketListener)ar.AsyncState;
+                var socket = _socket.EndAccept(ar);
+                ConnectionAccepted?.Invoke(tcpSocketListener, socket);
+                BeginAccept();
+            }
+            catch (Exception ex)
+            {
+                DisconnectAll();
+            }
         }
         #endregion
 
@@ -222,11 +229,11 @@ namespace ASocket
             }
             catch (SocketException socketException)
             {
-                ASocket.Log.Log.Error($"[{nameof(TcpSocketListener)}], {socketException}.");
+                ASocket.Log.Log.Error($"[{nameof(TcpSocketListener)}], {socketException}, {socketException.StackTrace}");
             }
             catch (ArgumentOutOfRangeException argumentOutOfRangeException)
             {
-                ASocket.Log.Log.Error($"[{nameof(TcpSocketListener)}], {argumentOutOfRangeException}.");
+                ASocket.Log.Log.Error($"[{nameof(TcpSocketListener)}], {argumentOutOfRangeException}, {argumentOutOfRangeException.StackTrace}");
             }
             catch (ObjectDisposedException objectDisposedException)
             {
@@ -244,14 +251,13 @@ namespace ASocket
         #endregion
 
         #region Receive
-
         private void CreateReadThread(ClientState clientState)
         {
             Task.Run(async () =>
             {
-                while (true)
+                try
                 {
-                    try
+                    while (true)
                     {
                         var bytes = await clientState.Socket.ReceiveAsync(clientState.Buffer, SocketFlags.None);
                         if (bytes > 0)
@@ -260,16 +266,16 @@ namespace ASocket
                             MessageReceivedInterval?.Invoke(clientState);
                         }
                     }
-                    catch (Exception ex)
-                    {
-                        ASocket.Log.Log.Error($"[{nameof(TcpSocketListener)}], {ex}");
-                        DisconnectedInternal?.Invoke(clientState);
-                        break;
-                    }
+                }
+                catch (Exception ex)
+                {
+                    ASocket.Log.Log.Info($"[{nameof(TcpSocketListener)}], [CreateReadThread], receive error disonnecting...");
+                    ASocket.Log.Log.Error($"[{nameof(TcpSocketListener)}], [CreateReadThread], {ex}, {ex.StackTrace}");
+                    DisconnectedInternal?.Invoke(clientState);
                 }
             });
         }
-        
+
         private void BeginReceive(ClientState clientState)
         {
             try

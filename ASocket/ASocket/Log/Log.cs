@@ -6,8 +6,8 @@ namespace ASocket.Log
     {
         None = 0,
         Verbose = 1 << 1,
-        Info = 2 << 1,
-        Error = 3 << 1,
+        Info = 1 << 2,
+        Error = 1 << 3,
         All = Verbose | Info | Error,
     }
     

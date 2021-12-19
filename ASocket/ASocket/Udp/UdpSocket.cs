@@ -103,7 +103,7 @@ namespace ASocket
             }
             catch (Exception ex)
             {
-                ASocket.Log.Log.Error($"[{nameof(UdpSocket)}], {ex}");
+                ASocket.Log.Log.Error($"[{nameof(UdpSocket)}], [Send], {ex}");
             }
         }
 
@@ -146,7 +146,7 @@ namespace ASocket
             }
             catch (Exception ex)
             {
-                ASocket.Log.Log.Error($"[{nameof(UdpSocket)}], {ex}");
+                ASocket.Log.Log.Error($"[{nameof(UdpSocket)}], [SendTo], {ex}");
             }
         }
         
@@ -162,7 +162,7 @@ namespace ASocket
             }
             catch (Exception ex)
             {
-                ASocket.Log.Log.Error($"[{nameof(UdpSocket)}], {ex}");
+                ASocket.Log.Log.Error($"[{nameof(UdpSocket)}], [SendTo], {ex}");
             }
         }
         
@@ -174,7 +174,7 @@ namespace ASocket
             }
             catch (Exception ex)
             {
-                ASocket.Log.Log.Error($"[{nameof(UdpSocket)}], {ex}");
+                ASocket.Log.Log.Error($"[{nameof(UdpSocket)}], [EndSend], {ex}");
             }
         }
         
@@ -190,7 +190,7 @@ namespace ASocket
             }
             catch (Exception ex)
             {
-                ASocket.Log.Log.Error($"[{nameof(UdpSocket)}], {ex}");
+                ASocket.Log.Log.Error($"[{nameof(UdpSocket)}], [Receive], {ex}");
             }
         }
         
@@ -205,11 +205,17 @@ namespace ASocket
                     //Log($"RECV: {_endPointFrom.ToString()}: {bytes}, {Encoding.ASCII.GetString(state.Buffer, 0, bytes)}");
                     MessageReceived?.Invoke(_endPointFrom, ref state.Buffer, bytes, _endPointFrom);
                 }
-                Receive();
             }
             catch (Exception ex)
             {
-                ASocket.Log.Log.Error($"[{nameof(UdpSocket)}], {ex}");
+                ASocket.Log.Log.Error($"[{nameof(UdpSocket)}], [EndReceive], {ex}");
+            }
+            finally
+            {
+                if (_udpType == UdpType.Listener)
+                {
+                    Receive();
+                }
             }
         }
         
