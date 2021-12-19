@@ -80,6 +80,8 @@ namespace ASocket
         {
             base.Destroy();
             Unregister();
+            _tcpSocketListener?.Dispose();
+            _udpSocketListener?.Dispose();
         }
 
         public void Disconnect(Peer peer)

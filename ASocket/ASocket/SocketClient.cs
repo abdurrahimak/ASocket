@@ -68,14 +68,13 @@ namespace ASocket
                 {
                     ASocket.Log.Log.Error($"[{nameof(SocketClient)}], Exception occured when Client connecting.. \n {ex}");
                 });
-                _tcpSocketClient.Disconnect();
-                _udpSocket?.Disconnect();
+                Disconnect();
             }
         }
 
         public void Disconnect()
         {
-            _tcpSocketClient.Disconnect();
+            _tcpSocketClient?.Disconnect();
             _udpSocket?.Disconnect();
         }
 
@@ -83,6 +82,9 @@ namespace ASocket
         {
             base.Destroy();
             Unregister();
+            Disconnect();
+            _tcpSocketClient?.Dispose();
+            _udpSocket?.Dispose();
         }
         #endregion
 
