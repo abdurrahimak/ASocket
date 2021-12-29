@@ -205,6 +205,10 @@ namespace ASocket
                     //Log($"RECV: {_endPointFrom.ToString()}: {bytes}, {Encoding.ASCII.GetString(state.Buffer, 0, bytes)}");
                     MessageReceived?.Invoke(_endPointFrom, ref state.Buffer, bytes, _endPointFrom);
                 }
+                if (_udpType == UdpType.Client)
+                {
+                    Receive();
+                }
             }
             catch (Exception ex)
             {
