@@ -34,7 +34,7 @@ namespace ASocket
             var queue = GetActionQueue(dispatcherId);
             while (queue.Count > 0)
             {
-                queue.Dequeue().Invoke();
+                queue.Dequeue()?.Invoke();
             }
         }
     }

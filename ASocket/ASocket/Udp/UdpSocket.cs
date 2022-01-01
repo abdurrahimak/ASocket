@@ -1,7 +1,9 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 namespace ASocket
 {
@@ -14,8 +16,6 @@ namespace ASocket
             Client
         }
         
-        public delegate void MessageReceivedDelegate(EndPoint endPoint, ref byte[] buffer, int bytes, EndPoint from);
-        
         private Socket _socket;
         private State _state = new State();
         private EndPoint _endPointFrom = new IPEndPoint(IPAddress.Any, 0);
@@ -23,18 +23,26 @@ namespace ASocket
         
         private AsyncCallback _receiveCallback = null;
         private AsyncCallback _sendCallback = null;
-        
+
         public EndPoint LocalEndPoint { get; private set; }
-        public event MessageReceivedDelegate MessageReceived;
+        private EndPoint _bindEndPoint;
+        public event Action<EndPoint, ReadOnlyMemory<byte>> MessageReceived;
 
         private class State
         {
             public byte[] Buffer = new byte[PacketInformation.PacketSize];
+            public ArraySegment<byte> SegmentBuffer;
+
+            public State()
+            {
+                SegmentBuffer = new ArraySegment<byte>(Buffer);
+            }
         }
 
         public UdpSocket()
         {
             _socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+            _socket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.ReuseAddress, true);
             _receiveCallback = new AsyncCallback(EndReceive);
             _sendCallback = new AsyncCallback(EndSend);
         }
@@ -53,11 +61,20 @@ namespace ASocket
         {
             try
             {
+                _bindEndPoint = endPoint;
                 _udpType = UdpType.Listener;
-                _socket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.ReuseAddress, true);
+                
+                //TODO IMMEDIATE: This codes running on windows. control after ios & android.
+                {
+                    const int SIO_UDP_CONNRESET = -1744830452;
+                    byte[] inValue = new byte[] {0};
+                    byte[] outValue = new byte[] {0};
+                    _socket.IOControl(SIO_UDP_CONNRESET, inValue, outValue);
+                }
+                
                 _socket.Bind(endPoint);
-                Receive();
                 ASocket.Log.Log.Info($"[{nameof(UdpSocket)}], Udp Server Listening on {endPoint}");
+                Receive();
             }
             catch (Exception ex)
             {
@@ -97,6 +114,10 @@ namespace ASocket
             {
                 throw new Exception($"Send Interface only the clients. If socket is listener then use the SendTo interface");
             }
+            if (!_socket.Connected)
+            {
+                return;
+            }
             try
             {
                 _socket.BeginSend(data, 0, length, SocketFlags.None, _sendCallback, _state);
@@ -113,6 +134,10 @@ namespace ASocket
             {
                 throw new Exception($"Send Interface only the clients. If socket is listener then use the SendTo interface");
             }
+            if (!_socket.Connected)
+            {
+                return;
+            }
             
             var task = Task.Factory.StartNew(async () =>
             {
@@ -122,7 +147,7 @@ namespace ASocket
                 }
                 catch (Exception ex)
                 {
-                    ASocket.Log.Log.Error($"[{nameof(TcpSocketClient)}], [SendAsync] \n {ex}");
+                    ASocket.Log.Log.Error($"[{nameof(UdpSocket)}], [SendAsync] \n {ex}");
                 }
             });
         }
@@ -203,23 +228,13 @@ namespace ASocket
                 if (bytes > 0)
                 {
                     //Log($"RECV: {_endPointFrom.ToString()}: {bytes}, {Encoding.ASCII.GetString(state.Buffer, 0, bytes)}");
-                    MessageReceived?.Invoke(_endPointFrom, ref state.Buffer, bytes, _endPointFrom);
+                    MessageReceived?.Invoke(_endPointFrom, state.SegmentBuffer[..bytes].AsMemory());
                 }
-                if (_udpType == UdpType.Client)
-                {
-                    Receive();
-                }
+                Receive();
             }
             catch (Exception ex)
             {
-                ASocket.Log.Log.Error($"[{nameof(UdpSocket)}], [EndReceive], {ex}");
-            }
-            finally
-            {
-                if (_udpType == UdpType.Listener)
-                {
-                    Receive();
-                }
+                ASocket.Log.Log.Error($"[{nameof(UdpSocket)}], [EndReceive], {ex}, {ex.StackTrace}");
             }
         }
         

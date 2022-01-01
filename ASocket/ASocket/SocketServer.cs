@@ -2,6 +2,9 @@
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
+using System.Runtime.InteropServices;
+using System.Threading;
+using System.Threading.Tasks;
 namespace ASocket
 {
 
@@ -145,20 +148,57 @@ namespace ASocket
                 _udpSocketListener.SendTo(peer.UdpRemoteEndPoint, peer.SendBuffer.BufferArray, length);
             }
         }
+        
+        private void SendInternalMessage(Peer peer, ReadOnlySpan<byte> data, PacketFlag packetFlag, MessageId messageId)
+        {
+            //TODO: 1KB Allocation when send any message. Find it.
+            var length = peer.SendBuffer.CreateMessage(messageId, data);
+            SendMessage(peer, length, packetFlag);
+        }
         #endregion
 
         #region Event Listeners
+        private Dictionary<Peer, CancellationTokenSource> _cancellationTokenSourcesByPeer = new ();
+
         private void OnTcpSocketConnected(Socket socket)
         {
             Peer peer = new Peer();
             peer.SetTcpSocket(socket);
             _peersBySocket.Add(socket, peer);
+
+            var cancellationTokenSource = new CancellationTokenSource();
+            _cancellationTokenSourcesByPeer.Add(peer, cancellationTokenSource);
+            Task.Run(async () =>
+            {
+                var tPeer = peer;
+                var mem = new Memory<byte>(new byte[4]);
+                mem.Span.Fill(0);
+                try
+                {
+
+                    while (true)
+                    {
+                        await Task.Delay(1000, cancellationTokenSource.Token);
+                        SendInternalMessage(tPeer, mem.Span, PacketFlag.Tcp, MessageId.Ping);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log.Log.Error($"[SocketServer] [PingTask] {ex} \n {ex.StackTrace}");
+                }
+            }, cancellationTokenSource.Token);
         }
 
         private void OnTcpSocketDisconnected(Socket socket)
         {
             if (_peersBySocket.TryGetValue(socket, out var peer))
             {
+                if (_cancellationTokenSourcesByPeer.TryGetValue(peer, out var cancellationTokenSource))
+                {
+                    cancellationTokenSource.Cancel();
+                    _cancellationTokenSourcesByPeer.Remove(peer);
+                }
+                
                 _peersBySocket.Remove(socket);
                 if (_peersByUdpEndpoint.ContainsKey(peer.UdpRemoteEndPoint))
                 {
@@ -214,7 +254,7 @@ namespace ASocket
             }
         }
 
-        private void OnUdpSocketMessageReceived(EndPoint endPoint, ref byte[] buffer, int bytes, EndPoint @from)
+        private void OnUdpSocketMessageReceived(EndPoint endPoint, ReadOnlyMemory<byte> buffer)
         {
             if (!_peersByUdpEndpoint.TryGetValue(endPoint, out var peer))
             {
@@ -226,7 +266,7 @@ namespace ASocket
                 peer.ReadUdpBuffer.Reset();
             }
 
-            peer.ReadUdpBuffer.WriteToBuffer(buffer, bytes);
+            peer.ReadUdpBuffer.WriteToBuffer(buffer.Span);
 
             if (peer.ReadUdpBuffer.PacketCompleted)
             {

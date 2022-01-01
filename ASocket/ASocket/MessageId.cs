@@ -4,5 +4,6 @@ namespace ASocket
     {
         None,
         UdpInformation,
+        Ping
     }
 }

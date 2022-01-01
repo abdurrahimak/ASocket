@@ -95,7 +95,7 @@ namespace ASocket
                 _localEP = localEP;
                 _socket = new Socket(_localEP.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
                 ASocket.Log.Log.Info($"[{nameof(TcpSocketListener)}], Start listening on {_localEP}");
-                _socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Linger, true);
+                _socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.DontLinger, true);
                 _socket.Bind(_localEP);
                 _socket.Listen(100);
                 ASocket.Log.Log.Info($"[{nameof(TcpSocketListener)}], Started listening on {_localEP}");

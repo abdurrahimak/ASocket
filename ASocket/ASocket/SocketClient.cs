@@ -180,6 +180,7 @@ namespace ASocket
 
         private void OnTcpSocketDisconnected()
         {
+            _udpSocket.Disconnect();
             AddDispatcherQueue(() =>
             {
                 ASocket.Log.Log.Info($"[{nameof(SocketClient)}] Disconnected.");
@@ -198,22 +199,30 @@ namespace ASocket
 
             if (_readTcpBuffer.PacketCompleted)
             {
-                var message = _readTcpBuffer.GetMessage();
-                AddDispatcherQueue(() =>
+                MessageId messageId = _readTcpBuffer.MessageID;
+                if (messageId == MessageId.None)
                 {
-                    MessageReceived?.Invoke(message);
-                });
+                    var message = _readTcpBuffer.GetMessage();
+                    AddDispatcherQueue(() =>
+                    {
+                        MessageReceived?.Invoke(message);
+                    });
+                }
+                else if(messageId == MessageId.Ping)
+                {
+                    //Log.Log.Info($"Ping message received");
+                }
             }
         }
 
-        private void OnUdpSocketMessageReceived(EndPoint endPoint, ref byte[] buffer, int bytes, EndPoint @from)
+        private void OnUdpSocketMessageReceived(EndPoint endPoint, ReadOnlyMemory<byte> buffer)
         {
             if (_readUdpBuffer.PacketCompleted)
             {
                 _readUdpBuffer.Reset();
             }
 
-            _readUdpBuffer.WriteToBuffer(buffer, bytes);
+            _readUdpBuffer.WriteToBuffer(buffer.Span);
 
             if (_readUdpBuffer.PacketCompleted)
             {

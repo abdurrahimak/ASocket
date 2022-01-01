@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace ASocketTest
 {
@@ -118,7 +119,13 @@ namespace ASocketTest
                             int index = Int32.Parse(commands[3]);
                             string message = commands[4];
                             var data = Encoding.UTF8.GetBytes(message);
-                            _socketClients[index].Send(new ReadOnlySpan<byte>(data), packetFlag);
+                            Task.Run(() =>
+                            {
+                                for (int i = 0; i < 100; i++)
+                                {
+                                    _socketClients[index].Send(new ReadOnlySpan<byte>(data), packetFlag);
+                                }
+                            });
                         }
                         Console.WriteLine($"");
                     }
