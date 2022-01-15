@@ -93,6 +93,13 @@ namespace ASocketTest
                             if (sendAll)
                             {
                                 _socketServer.SendAll(new ReadOnlySpan<byte>(data), packetFlag);
+                                Task.Run(() =>
+                                {
+                                    for (int i = 0; i < 100; i++)
+                                    {
+                                        _socketServer.SendAll(new ReadOnlySpan<byte>(data), packetFlag);
+                                    }
+                                });
                             }
                             else
                             {

@@ -16,7 +16,7 @@ namespace ASocket
 
         private Dictionary<Socket, Peer> _peersBySocket = new Dictionary<Socket, Peer>();
         private Dictionary<EndPoint, Peer> _peersByUdpEndpoint = new Dictionary<EndPoint, Peer>();
-        
+
         public event Action<Peer> PeerConnected;
         public event Action<Peer> PeerDisconnected;
         public event Action<Peer, byte[]> MessageReceived;
@@ -99,13 +99,13 @@ namespace ASocket
             var length = peer.SendBuffer.CreateMessage(MessageId.None, data.AsSpan());
             SendMessage(peer, length, packetFlag);
         }
-        
+
         public void Send(Peer peer, ReadOnlyMemory<byte> data, PacketFlag packetFlag)
         {
             var length = peer.SendBuffer.CreateMessage(MessageId.None, data);
             SendMessage(peer, length, packetFlag);
         }
-        
+
         public void Send(Peer peer, ReadOnlySpan<byte> data, PacketFlag packetFlag)
         {
             //TODO: 1KB Allocation when send any message. Find it.
@@ -148,7 +148,7 @@ namespace ASocket
                 _udpSocketListener.SendTo(peer.UdpRemoteEndPoint, peer.SendBuffer.BufferArray, length);
             }
         }
-        
+
         private void SendInternalMessage(Peer peer, ReadOnlySpan<byte> data, PacketFlag packetFlag, MessageId messageId)
         {
             //TODO: 1KB Allocation when send any message. Find it.
@@ -158,7 +158,7 @@ namespace ASocket
         #endregion
 
         #region Event Listeners
-        private Dictionary<Peer, CancellationTokenSource> _cancellationTokenSourcesByPeer = new ();
+        private Dictionary<Peer, CancellationTokenSource> _cancellationTokenSourcesByPeer = new();
 
         private void OnTcpSocketConnected(Socket socket)
         {
@@ -198,7 +198,7 @@ namespace ASocket
                     cancellationTokenSource.Cancel();
                     _cancellationTokenSourcesByPeer.Remove(peer);
                 }
-                
+
                 _peersBySocket.Remove(socket);
                 if (_peersByUdpEndpoint.ContainsKey(peer.UdpRemoteEndPoint))
                 {
@@ -221,10 +221,11 @@ namespace ASocket
                 peer.ReadTcpBuffer.Reset();
             }
 
-            peer.ReadTcpBuffer.WriteToBuffer(buffer.Span);
+            var leftSpan = peer.ReadTcpBuffer.WriteToBuffer(buffer.Span);
 
-            if (peer.ReadTcpBuffer.PacketCompleted)
-            {                         
+            //Process packet.
+            while (peer.ReadTcpBuffer.PacketCompleted)
+            {
                 MessageId messageId = peer.ReadTcpBuffer.MessageID;
                 if (messageId == MessageId.UdpInformation)
                 {
@@ -251,6 +252,9 @@ namespace ASocket
                         MessageReceived?.Invoke(peer, message);
                     });
                 }
+                
+                peer.ReadTcpBuffer.Reset();
+                leftSpan = peer.ReadTcpBuffer.WriteToBuffer(leftSpan);
             }
         }
 

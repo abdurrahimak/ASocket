@@ -195,9 +195,9 @@ namespace ASocket
                 _readTcpBuffer.Reset();
             }
 
-            _readTcpBuffer.WriteToBuffer(buffer.Span);
+            var leftSpan = _readTcpBuffer.WriteToBuffer(buffer.Span);
 
-            if (_readTcpBuffer.PacketCompleted)
+            while (_readTcpBuffer.PacketCompleted)
             {
                 MessageId messageId = _readTcpBuffer.MessageID;
                 if (messageId == MessageId.None)
@@ -212,6 +212,9 @@ namespace ASocket
                 {
                     //Log.Log.Info($"Ping message received");
                 }
+                
+                _readTcpBuffer.Reset();
+                leftSpan = _readTcpBuffer.WriteToBuffer(leftSpan);
             }
         }
 

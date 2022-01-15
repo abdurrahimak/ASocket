@@ -6,13 +6,14 @@ namespace ASocket
     internal class PacketBuffer : IDisposable
     {
         private int _currentSize = 0;
-        private int _packetSize = -1;
+        private int _packetDataSize = -1;
+        private int _packetTotalSize => _packetDataSize + 4;
 
 
         public readonly byte[] BufferArray;
         public readonly Memory<byte> BufferMem;
         public int CurrentSize => _currentSize;
-        public bool PacketCompleted => _currentSize >= _packetSize && _packetSize > 0;
+        public bool PacketCompleted => _currentSize >= _packetTotalSize && _packetDataSize > 0;
         internal MessageId MessageID => (MessageId)BufferMem.Span[PacketInformation.MessageIdPacketIndex];
 
         public PacketBuffer()
@@ -24,7 +25,7 @@ namespace ASocket
         internal void Reset()
         {
             _currentSize = 0;
-            _packetSize = -1;
+            _packetDataSize = -1;
         }
 
 
@@ -36,16 +37,42 @@ namespace ASocket
             WriteToBuffer(dataSpan);
         }
 
-        internal void WriteToBuffer(ReadOnlySpan<byte> dataSpan)
+        internal ReadOnlySpan<byte> WriteToBuffer(ReadOnlySpan<byte> dataSpan)
         {
-            var size = dataSpan.Length;
-            var slicedBufferSpan = BufferMem.Span.Slice(_currentSize, size);
-            dataSpan.CopyTo(slicedBufferSpan);
-            if (_currentSize < 4 && (_currentSize + size) >= 4)
+            if (_currentSize < 4)
             {
-                _packetSize = MemoryMarshal.Read<int>(BufferMem.Span[..4]);
+                var size = dataSpan.Length;
+                if((_currentSize + size) >= 4)
+                {
+                    var left = 4 - _currentSize;
+                    var sizeSpan = BufferMem.Span.Slice(_currentSize, left);
+                    dataSpan.Slice(0, left).CopyTo(sizeSpan);
+                    dataSpan = dataSpan[left..];
+                    _currentSize = 4;
+                    _packetDataSize = MemoryMarshal.Read<int>(BufferMem.Span[..4]);
+                }
+                else
+                {
+                    var slicedBufferSpan = BufferMem.Span.Slice(_currentSize, size);
+                    dataSpan.CopyTo(slicedBufferSpan);
+                    dataSpan = new Span<byte>(); 
+                    _currentSize += size;
+                }
             }
-            _currentSize += size;
+
+            if (dataSpan.Length > 0)
+            {
+                var dataSize = dataSpan.Length;
+                var leftSizeForCurrentPacket = _packetTotalSize - _currentSize;
+                var copySize = leftSizeForCurrentPacket > dataSize ? dataSize : leftSizeForCurrentPacket;
+                
+                var slicedBufferSpan = BufferMem.Span.Slice(_currentSize, copySize);
+                dataSpan.Slice(0, copySize).CopyTo(slicedBufferSpan);
+                _currentSize += copySize;
+                dataSpan = dataSpan[copySize..];
+            }
+
+            return dataSpan;
         }
         
         #endregion
@@ -56,12 +83,14 @@ namespace ASocket
             var dataLength = dataSpan.Length;
             var bufferSpan = BufferMem.Span;
             dataSpan.CopyTo(bufferSpan.Slice(PacketInformation.PacketMessageStartIndex, dataLength));
-
-            // BitConverter.TryWriteBytes(bufferSpan[..4], dataLength);
+            
+            // For message id
+            dataLength += 1;
+            
             MemoryMarshal.Write(bufferSpan[..4], ref dataLength);
 
             bufferSpan[4] = (byte)messageId;
-            var size = dataLength + 4 + 1;
+            var size = dataLength + 4; // data length + message size.
             return size;
         }
 
@@ -70,11 +99,12 @@ namespace ASocket
             var dataLength = dataMem.Length;
             dataMem.CopyTo(BufferMem.Slice(PacketInformation.PacketMessageStartIndex, dataLength));
 
-            // BitConverter.TryWriteBytes(bufferSpan[..4], dataLength);
+            // For message id
+            dataLength += 1;
             MemoryMarshal.Write(BufferMem.Span[..4], ref dataLength);
 
             BufferMem.Span[4] = (byte)messageId;
-            var size = dataLength + 4 + 1;
+            var size = dataLength + 4; // data length + message size.
             return size;
         }
         
